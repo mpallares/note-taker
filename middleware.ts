@@ -1,12 +1,18 @@
-import { auth } from "@/auth"
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 
-export default auth((req) => {
-  // The routes that require authentication
-  if (!req.auth && req.nextUrl.pathname.startsWith("/notes")) {
-    const newUrl = new URL("/login", req.nextUrl.origin)
-    return Response.redirect(newUrl)
+export function middleware(request: NextRequest) {
+  // Get the session token from cookies
+  const sessionToken = request.cookies.get("authjs.session-token") ||
+                       request.cookies.get("__Secure-authjs.session-token")
+
+  // If accessing /notes without a session token, redirect to login
+  if (request.nextUrl.pathname.startsWith("/notes") && !sessionToken) {
+    return NextResponse.redirect(new URL("/login", request.url))
   }
-})
+
+  return NextResponse.next()
+}
 
 export const config = {
   matcher: ["/notes/:path*"],
