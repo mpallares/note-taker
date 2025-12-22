@@ -55,7 +55,7 @@ export default function LoginPage() {
             Your thoughts,<br />beautifully organized
           </h1>
           <p className="text-lg text-indigo-100 leading-relaxed max-w-md">
-            Capture ideas, organize your work, and stay productive with our elegant note-taking platform.
+            Capture ideas, organize your work, and stay productive with NoteTaker.
           </p>
         </div>
         <div className="relative z-10">
