@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { updateNoteSchema } from "@/lib/validations/schemas"
+import { ZodError } from "zod"
 
 // GET a single note
 export async function GET(
@@ -50,7 +52,10 @@ export async function PATCH(
     }
 
     const { id } = await params
-    const { title, content } = await req.json()
+    const body = await req.json()
+
+    // Validate request body with Zod
+    const validatedData = updateNoteSchema.parse(body)
 
     const note = await prisma.note.findFirst({
       where: {
@@ -67,14 +72,25 @@ export async function PATCH(
       where: {
         id,
       },
-      data: {
-        ...(title && { title }),
-        ...(content && { content }),
-      },
+      data: validatedData,
     })
 
     return NextResponse.json(updatedNote)
   } catch (error) {
+    // Handle Zod validation errors
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        {
+          error: "Validation failed",
+          details: error.issues.map((err) => ({
+            field: err.path.join("."),
+            message: err.message,
+          })),
+        },
+        { status: 400 }
+      )
+    }
+
     console.error("Error updating note:", error)
     return NextResponse.json(
       { error: "Something went wrong" },

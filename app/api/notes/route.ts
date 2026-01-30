@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { createNoteSchema } from "@/lib/validations/schemas"
+import { ZodError } from "zod"
 
 // GET all notes for the authenticated user
 export async function GET() {
@@ -39,14 +41,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { title, content } = await req.json()
+    const body = await req.json()
 
-    if (!title || !content) {
-      return NextResponse.json(
-        { error: "Title and content are required" },
-        { status: 400 }
-      )
-    }
+    // Validate request body with Zod
+    const validatedData = createNoteSchema.parse(body)
+    const { title, content } = validatedData
 
     const note = await prisma.note.create({
       data: {
@@ -58,6 +57,20 @@ export async function POST(req: Request) {
 
     return NextResponse.json(note, { status: 201 })
   } catch (error) {
+    // Handle Zod validation errors
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        {
+          error: "Validation failed",
+          details: error.issues.map((err) => ({
+            field: err.path.join("."),
+            message: err.message,
+          })),
+        },
+        { status: 400 }
+      )
+    }
+
     console.error("Error creating note:", error)
     return NextResponse.json(
       { error: "Something went wrong" },
