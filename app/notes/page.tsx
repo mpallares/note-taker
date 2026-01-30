@@ -3,24 +3,28 @@
 import { useEffect, useState } from "react"
 import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
-
-interface Note {
-  id: string
-  title: string
-  content: string
-  createdAt: string
-  updatedAt: string
-}
+import { useNotesStore } from "@/store/useNotesStore"
+import * as notesApi from "@/lib/api/notes"
+import { toast } from "sonner"
 
 export default function NotesPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [notes, setNotes] = useState<Note[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null)
+
+  // Zustand store - only shared state
+  const notes = useNotesStore((state) => state.notes)
+  const selectedNote = useNotesStore((state) => state.selectedNote)
+  const setNotes = useNotesStore((state) => state.setNotes)
+  const addNote = useNotesStore((state) => state.addNote)
+  const updateNoteInList = useNotesStore((state) => state.updateNoteInList)
+  const removeNote = useNotesStore((state) => state.removeNote)
+  const selectNote = useNotesStore((state) => state.selectNote)
+
+  // Local component state - only this component needs it
   const [isEditing, setIsEditing] = useState(false)
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -30,108 +34,95 @@ export default function NotesPage() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetchNotes()
+      loadNotes()
     }
   }, [status])
 
-  const fetchNotes = async () => {
+  async function loadNotes() {
     try {
-      const response = await fetch("/api/notes")
-      if (response.ok) {
-        const data = await response.json()
-        setNotes(data)
-      }
+      const data = await notesApi.fetchNotes()
+      setNotes(data)
     } catch (error) {
-      console.error("Error fetching notes:", error)
+      console.error(error)
+      toast.error("Failed to load notes")
     } finally {
       setLoading(false)
     }
   }
 
-  const handleCreateNote = async () => {
-    if (!title.trim() || !content.trim()) return
+  async function handleCreateNote() {
+    if (!title.trim() || !content.trim()) {
+      toast.error("Title and content are required")
+      return
+    }
 
     try {
-      const response = await fetch("/api/notes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content }),
-      })
-
-      if (response.ok) {
-        setTitle("")
-        setContent("")
-        setIsEditing(false)
-        await fetchNotes()
-      }
+      const newNote = await notesApi.createNote(title, content)
+      addNote(newNote)
+      setTitle("")
+      setContent("")
+      setIsEditing(false)
+      toast.success("Note created!")
     } catch (error) {
-      console.error("Error creating note:", error)
+      console.error(error)
+      toast.error("Failed to create note")
     }
   }
 
-  const handleUpdateNote = async () => {
-    if (!selectedNote || !title.trim() || !content.trim()) return
+  async function handleUpdateNote() {
+    if (!selectedNote || !title.trim() || !content.trim()) {
+      toast.error("Title and content are required")
+      return
+    }
 
     try {
-      const response = await fetch(`/api/notes/${selectedNote.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content }),
-      })
-
-      if (response.ok) {
-        setTitle("")
-        setContent("")
-        setSelectedNote(null)
-        setIsEditing(false)
-        await fetchNotes()
-      }
+      const updatedNote = await notesApi.updateNote(selectedNote.id, title, content)
+      updateNoteInList(updatedNote)
+      setTitle("")
+      setContent("")
+      setIsEditing(false)
+      toast.success("Note updated!")
     } catch (error) {
-      console.error("Error updating note:", error)
+      console.error(error)
+      toast.error("Failed to update note")
     }
   }
 
-  const handleDeleteNote = async (noteId: string) => {
+  async function handleDeleteNote(noteId: string) {
     if (!confirm("Are you sure you want to delete this note?")) return
 
     try {
-      const response = await fetch(`/api/notes/${noteId}`, {
-        method: "DELETE",
-      })
-
-      if (response.ok) {
-        if (selectedNote?.id === noteId) {
-          setSelectedNote(null)
-          setTitle("")
-          setContent("")
-          setIsEditing(false)
-        }
-        await fetchNotes()
-      }
+      await notesApi.deleteNote(noteId)
+      removeNote(noteId)
+      setTitle("")
+      setContent("")
+      setIsEditing(false)
+      toast.success("Note deleted!")
     } catch (error) {
-      console.error("Error deleting note:", error)
+      console.error(error)
+      toast.error("Failed to delete note")
     }
   }
 
-  const handleSelectNote = (note: Note) => {
-    setSelectedNote(note)
+  function handleSelectNote(note: notesApi.Note) {
+    selectNote(note)
     setTitle(note.title)
     setContent(note.content)
     setIsEditing(false)
   }
 
-  const handleNewNote = () => {
-    setSelectedNote(null)
+  function handleNewNote() {
+    selectNote(null)
     setTitle("")
     setContent("")
     setIsEditing(true)
   }
 
-  const handleEdit = () => {
+  function handleStartEditing() {
     setIsEditing(true)
   }
 
-  const handleCancel = () => {
+  function handleCancel() {
     if (selectedNote) {
       setTitle(selectedNote.title)
       setContent(selectedNote.content)
@@ -140,6 +131,14 @@ export default function NotesPage() {
       setContent("")
     }
     setIsEditing(false)
+  }
+
+  function handleSave() {
+    if (selectedNote) {
+      handleUpdateNote()
+    } else {
+      handleCreateNote()
+    }
   }
 
   if (status === "loading" || loading) {
@@ -330,7 +329,7 @@ export default function NotesPage() {
                           Cancel
                         </button>
                         <button
-                          onClick={selectedNote ? handleUpdateNote : handleCreateNote}
+                          onClick={handleSave}
                           className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/30 transition-all"
                         >
                           {selectedNote ? "Save Changes" : "Create Note"}
@@ -347,7 +346,7 @@ export default function NotesPage() {
                           </svg>
                         </button>
                         <button
-                          onClick={handleEdit}
+                          onClick={handleStartEditing}
                           className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/30 transition-all flex items-center gap-2"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
