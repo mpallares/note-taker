@@ -4,17 +4,24 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 
+interface ValidationError {
+  field: string
+  message: string
+}
+
 export default function RegisterPage() {
   const router = useRouter()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<ValidationError[]>([])
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setFieldErrors([])
     setLoading(true)
 
     try {
@@ -29,7 +36,13 @@ export default function RegisterPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error || "Something went wrong")
+        if (data.details) {
+          // Handle validation errors
+          setFieldErrors(data.details)
+          setError(data.error)
+        } else {
+          setError(data.error || "Something went wrong")
+        }
       } else {
         router.push("/login")
       }
@@ -103,8 +116,15 @@ export default function RegisterPage() {
                 <svg className="w-5 h-5 text-red-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
-                <div>
-                  <p className="text-sm font-medium text-red-900">{error}</p>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-900 mb-1">{error}</p>
+                  {fieldErrors.length > 0 && (
+                    <ul className="text-sm text-red-700 space-y-1 mt-2">
+                      {fieldErrors.map((err, index) => (
+                        <li key={index}>• {err.message}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
             )}
@@ -157,6 +177,9 @@ export default function RegisterPage() {
                 className="block w-full px-4 py-3.5 text-gray-900 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent focus:bg-white transition-all"
                 placeholder="Create a secure password"
               />
+              <p className="mt-2 text-xs text-gray-500">
+                Must be at least 8 characters with uppercase, lowercase, and a number
+              </p>
             </div>
 
             <button

@@ -6,8 +6,19 @@ export interface Note {
   updatedAt: string
 }
 
-export async function fetchNotes(): Promise<Note[]> {
-  const response = await fetch('/api/notes')
+export interface FetchNotesParams {
+  search?: string
+}
+
+export async function fetchNotes(params?: FetchNotesParams): Promise<Note[]> {
+  const searchParams = new URLSearchParams()
+
+  if (params?.search) {
+    searchParams.set('search', params.search)
+  }
+
+  const url = `/api/notes${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
+  const response = await fetch(url)
   if (!response.ok) throw new Error('Failed to fetch notes')
   return response.json()
 }

@@ -25,6 +25,7 @@ export default function NotesPage() {
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -36,11 +37,13 @@ export default function NotesPage() {
     if (status === "authenticated") {
       loadNotes()
     }
-  }, [status])
+  }, [status, searchQuery])
 
   async function loadNotes() {
     try {
-      const data = await notesApi.fetchNotes()
+      const data = await notesApi.fetchNotes({
+        search: searchQuery,
+      })
       setNotes(data)
     } catch (error) {
       console.error(error)
@@ -205,7 +208,7 @@ export default function NotesPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Notes List */}
           <div className="lg:col-span-4 bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 overflow-hidden">
-            <div className="p-6 border-b border-gray-200/50">
+            <div className="p-6 border-b border-gray-200/50 space-y-4">
               <button
                 onClick={handleNewNote}
                 className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/30 transition-all"
@@ -215,18 +218,54 @@ export default function NotesPage() {
                 </svg>
                 New Note
               </button>
+
+              {/* Search Bar */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search notes..."
+                  className="block w-full pl-10 pr-10 py-2.5 text-gray-900 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-gray-400 transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    <svg className="h-5 w-5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="p-4 max-h-[calc(100vh-280px)] overflow-y-auto">
+            <div className="p-4 max-h-[calc(100vh-320px)] overflow-y-auto">
               <div className="space-y-3">
                 {notes.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl flex items-center justify-center">
                       <svg className="w-8 h-8 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        {searchQuery ? (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        ) : (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        )}
                       </svg>
                     </div>
-                    <p className="text-gray-700 font-medium">No notes yet</p>
-                    <p className="text-gray-500 text-sm mt-1">Create your first note to get started!</p>
+                    <p className="text-gray-700 font-medium">
+                      {searchQuery ? "No notes found" : "No notes yet"}
+                    </p>
+                    <p className="text-gray-500 text-sm mt-1">
+                      {searchQuery
+                        ? "Try a different search term"
+                        : "Create your first note to get started!"}
+                    </p>
                   </div>
                 ) : (
                   notes.map((note) => (

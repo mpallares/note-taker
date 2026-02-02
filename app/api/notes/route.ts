@@ -5,7 +5,7 @@ import { createNoteSchema } from "@/lib/validations/schemas"
 import { ZodError } from "zod"
 
 // GET all notes for the authenticated user
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await auth()
 
@@ -13,10 +13,33 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Parse query parameters
+    const { searchParams } = new URL(req.url)
+    const search = searchParams.get("search") || ""
+
+    // Build where clause
+    const where = {
+      userId: session.user.id,
+      ...(search && {
+        OR: [
+          {
+            title: {
+              contains: search,
+              mode: "insensitive" as const,
+            },
+          },
+          {
+            content: {
+              contains: search,
+              mode: "insensitive" as const,
+            },
+          },
+        ],
+      }),
+    }
+
     const notes = await prisma.note.findMany({
-      where: {
-        userId: session.user.id,
-      },
+      where,
       orderBy: {
         updatedAt: "desc",
       },
